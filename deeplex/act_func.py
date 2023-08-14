@@ -29,7 +29,8 @@ def relu(val: Scaler | Tensor):
 
 def tanh(val: Scaler | Tensor):
     def for_scaler(scaler):
-        t = (np.exp(2 * scaler.data) - 1) / (np.exp(2 * scaler.data) + 1)
+        exp_2x = np.exp(2 * scaler.data)
+        t = (exp_2x - 1) / (exp_2x + 1)
         res = Scaler(t, (scaler,), "TanH")
 
         def backward():
@@ -44,5 +45,26 @@ def tanh(val: Scaler | Tensor):
     elif type(val) == Tensor:
         return np.vectorize(for_scaler)(val)
 
+    else:
+        _raise_val_error()
+
+
+def sigmoid(val: Scaler | Tensor):
+    def for_scaler(scaler):
+        exp_x = np.exp(-scaler.data)
+        res = Scaler(1 / (1 + exp_x), (scaler,), "Sigmoid")
+
+        def backward():
+            scaler.grad += (exp_x / (1 + exp_x) ** 2) * res.grad
+
+        res._backward = backward
+        return res
+    
+    if type(val) == Scaler:
+        return for_scaler(val)
+    
+    elif type(val) == Tensor:
+        return np.vectorize(for_scaler)(val)
+    
     else:
         _raise_val_error()
