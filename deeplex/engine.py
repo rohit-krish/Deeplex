@@ -32,6 +32,9 @@ class Tensor(np.ndarray):
         for i, s in enumerate(self.flatten()):
             s.data = new_data[i]
 
+    def to_numpy(self):
+        return np.array([s.data for s in self.flatten()]).reshape(self.shape)
+
 
 class Scaler:
     def __init__(self, data, _prev=(), _op=""):
