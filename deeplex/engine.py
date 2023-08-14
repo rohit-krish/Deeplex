@@ -32,12 +32,6 @@ class Tensor(np.ndarray):
         for i, s in enumerate(self.flatten()):
             s.data = new_data[i]
 
-    def relu(self):
-        return np.vectorize(lambda x: x.relu())(self)
-
-    def tanh(self):
-        return np.vectorize(lambda x: x.tanh())(self)
-
 
 class Scaler:
     def __init__(self, data, _prev=(), _op=""):
@@ -100,28 +94,6 @@ class Scaler:
         else:
             raise Exception("Only int, float & Scaler are alllowed for power op.")
 
-    # TODO: seperate the activation function from here
-    def relu(self):
-        res = Scaler(0 if self.data < 0 else self.data, (self,), "ReLU")
-
-        def backward():
-            self.grad += (res.data > 0) * res.grad
-
-        res._backward = backward
-
-        return res
-
-    def tanh(self):
-        x = self.data
-        t = (np.exp(2 * x) - 1) / (np.exp(2 * x) + 1)
-        res = Scaler(t, (self,), "TanH")
-
-        def backward():
-            self.grad += (1 - t**2) * res.grad
-
-        res._backward = backward
-        return res
-
     def backward(self):
         # build the topological graph
         topo = []
@@ -166,4 +138,3 @@ class Scaler:
 
     def __repr__(self):
         return f"Scaler({self.data})"
-
