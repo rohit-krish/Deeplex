@@ -29,7 +29,7 @@ def relu(val: Scaler | Tensor):
 
 def tanh(val: Scaler | Tensor):
     def for_scaler(scaler):
-        t = (np.exp(2 * scaler) - 1) / (np.exp(2 * scaler) + 1)
+        t = (np.exp(2 * scaler.data) - 1) / (np.exp(2 * scaler.data) + 1)
         res = Scaler(t, (scaler,), "TanH")
 
         def backward():
