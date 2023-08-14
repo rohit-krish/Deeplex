@@ -1,4 +1,5 @@
 from graphviz import Digraph
+from .engine import Scaler
 
 
 def _trace(root):
@@ -17,6 +18,9 @@ def _trace(root):
 
 
 def draw_graph(root):
+    if type(root) != Scaler:
+        raise Exception('Not Alowed for other than Scaler')
+
     dot = Digraph(format="svg", graph_attr={"rankdir": "LR"})  # LR = left to right
 
     nodes, edges = _trace(root)
@@ -24,9 +28,8 @@ def draw_graph(root):
         uid = str(id(n))
         # for any value in the graph, create a rectangular ('record') node for it
         dot.node(
-            # name=uid, label="{ %s | data %.4f | grad %.4f }" % (n.label, n.data, n.grad), shape='record'
             name=uid,
-            label="{ %s | data %s | grad %s }" % (n.label, n.data, n.grad),
+            label="{ data %.4f | grad %.4f }" % (n.data, n.grad),
             shape="record",
         )
         if n._op:
