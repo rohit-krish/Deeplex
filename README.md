@@ -4,7 +4,7 @@ Thanks Andrej 💖.
 
 ### TODO
 
-- [ ] computation on GPU aswell
+- [ ] computation on GPU aswell (tried cupy, but it won't support dtype of 'object' 😭 )
 - [ ] add .requires_grad in Tensor & Scaler
 - [ ] add the 'with block' of no_grad
 - [ ] automatically list the parameters
