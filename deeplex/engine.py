@@ -13,6 +13,9 @@ class Tensor(np.ndarray):
         for s in self.flatten():
             s.backward()
 
+    def exp(self):
+        return np.vectorize(lambda x: x.exp())(self)
+
     @property
     def grad(self):
         return np.vectorize(lambda x: x.grad)(self)
@@ -96,6 +99,15 @@ class Scaler:
             return res
         else:
             raise Exception("Only int, float & Scaler are alllowed for power op.")
+
+    def exp(self):
+        res = Scaler(np.exp(self.data), (self,), "exp")
+
+        def backward():
+            self.grad += np.exp(self.data) * res.grad
+
+        res._backward = backward
+        return res
 
     def backward(self):
         # build the topological graph
