@@ -1,5 +1,5 @@
 import numpy as np
-from engine import Tensor, Scaler
+from .engine import Tensor, Scaler
 
 
 def _asserts(y1, y1_str, y2, y2_str):
