@@ -5,14 +5,17 @@ Thanks Andrej 💖.
 ### TODO
 
 - [ ] computation on GPU aswell (tried cupy, but it won't support dtype of 'object' 😭 )
-- [ ] add .requires_grad in Tensor & Scaler
-- [ ] add the 'with block' of no_grad
+<!-- - [ ] add .requires_grad in Tensor & Scaler -->
+<!-- - [ ] add the 'with block' of no_grad -->
 - [ ] automatically list the parameters
-- [ ] implement more optimizers, loss functions
+- [ ] implement more loss functions
+- [x] Adam, RMSProp, SGD+Momentum
 - [ ] learning rate schedulers
-- [ ] implement other NNs
+- [ ] weight initializations
+- [ ] Conv2d, RNN, LSTM, GRU
 - [ ] dataloader
 - [ ] testes
 - [ ] add docs inside code
 - [ ] update README.md
 - [ ] add setup.py
+- etc...
