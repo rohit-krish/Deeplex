@@ -1,1 +1,1 @@
-from .optimizer import Optimizer, SGD
+from .optimizer import Optimizer, SGD, RMSProp, Adam
