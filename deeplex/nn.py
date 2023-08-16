@@ -70,4 +70,11 @@ class RNN(Module):
         return outputs, h_t
 
     def parameters(self):
-        return self.i2h_layers + self.h2h_layers
+        params = []
+        for l in self.i2h_layers:
+            params += l.parameters()
+        
+        for l in self.h2h_layers:
+            params += l.parameters()
+
+        return params
