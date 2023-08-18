@@ -259,22 +259,22 @@ class Tensor:
 
         elif isinstance(other, Tensor):
             # for cupy to work here the inputs should be float64
-            other.totype("float64")
-            self.totype("float64")
+            other_data = other.data.astype("float64")
+            self_data = self.data.astype("float64")
 
-            res_data = np.vectorize(_neg_pow)(self.data, other.data)
-            res = Tensor(res_data, (self, other), f"^{other.data}")
+            res_data = np.vectorize(_neg_pow)(self_data, other_data)
+            res = Tensor(res_data, (self, other), f"^{other_data}")
 
             self_shape, other_shape = self.shape, other.shape
 
-            data_pow_other_min_1 = np.vectorize(_neg_pow)(self.data, other.data - 1)
-            data_pow_other = np.vectorize(_neg_pow)(self.data, other.data)
+            data_pow_other_min_1 = np.vectorize(_neg_pow)(self_data, other_data - 1)
+            data_pow_other = np.vectorize(_neg_pow)(self_data, other_data)
 
             if self_shape == other_shape:
                 # backward for element-wise powering of tensors with same shape
                 def backward():
-                    self.grad += other.data * data_pow_other_min_1 * res.grad
-                    other.grad += data_pow_other * np.log(self.data)
+                    self.grad += other_data * data_pow_other_min_1 * res.grad
+                    other.grad += data_pow_other * np.log(self_data)
 
             else:
                 # determine the axes along the broadcasting occurs
@@ -284,12 +284,12 @@ class Tensor:
                 def backward():
                     self.grad += np.reshape(
                         np.sum(
-                            other.data * data_pow_other_min_1 * res.grad, axis=axis_self
+                            other_data * data_pow_other_min_1 * res.grad, axis=axis_self
                         ),
                         self_shape,
                     )
                     other.grad += np.reshape(
-                        np.sum(data_pow_other * np.log(self.data), axis=axis_other),
+                        np.sum(data_pow_other * np.log(self_data), axis=axis_other),
                         other_shape,
                     )
 
