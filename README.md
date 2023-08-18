@@ -1,8 +1,8 @@
-Deeplex is a basic Deep Learning Framework, built on top of an AutoGrad Engine(implemented using Operator overloading)
+Deeplex is a basic Deep Learning Framework, built on top of an AutoGrad Engine.
 
 ### TODO
 
-- [ ] computation on GPU aswell (tried cupy, but it won't support dtype of 'object' 😭 )
+- [x] computation on GPU aswell
 - [ ] add .requires_grad in Tensor & Scaler
 - [ ] add the 'with block' of no_grad
 - [ ] automatically list the parameters
