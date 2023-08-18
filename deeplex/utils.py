@@ -1,9 +1,12 @@
 from graphviz import Digraph
-from .engine import Scaler
+
+def _truncate_string(s, max_length):
+    if len(s) > max_length:
+        return s[: max_length - 3] + "..."  # truncate and add ellipsis
+    return s
 
 
 def _trace(root):
-    # builds a set of all nodes and edges in a graph
     nodes, edges = set(), set()
 
     def build(v):
@@ -17,29 +20,57 @@ def _trace(root):
     return nodes, edges
 
 
-def draw_graph(root):
-    if type(root) != Scaler:
-        raise Exception('Not Alowed for other than Scaler')
-
-    dot = Digraph(format="svg", graph_attr={"rankdir": "LR"})  # LR = left to right
+def draw_graph(root, max_data_length=50):
+    dot = Digraph(format="svg", graph_attr={"rankdir": "LR"})
 
     nodes, edges = _trace(root)
     for n in nodes:
         uid = str(id(n))
-        # for any value in the graph, create a rectangular ('record') node for it
+        label_data = _truncate_string(repr(n.data), max_data_length)
+        label_grad = _truncate_string(repr(n.grad), max_data_length)
         dot.node(
             name=uid,
-            label="{ data %.4f | grad %.4f }" % (n.data, n.grad),
+            label="{ %s | data %s | grad %s }" % (n.label, label_data, label_grad),
             shape="record",
         )
         if n._op:
-            # if this value is a result of some operation, create an op node for it
             dot.node(name=uid + n._op, label=n._op)
-            # and connect this node to it
             dot.edge(uid + n._op, uid)
 
     for n1, n2 in edges:
-        # connect n1 to the op node of n2
         dot.edge(str(id(n1)), str(id(n2)) + n2._op)
 
     return dot
+
+
+def _broadcast_axis(shape_left, shape_right):
+    """
+    Determine the axes along which broadcasting occurs between two shapes.
+
+    Args:
+        shape_left: Shape of the left tensor.
+        shape_right: Shape of the right tensor.
+
+    Returns:
+        A tuple of two tuples representing the axes along which broadcasting occurs.
+    """
+    if shape_left == shape_right:
+        return ((), ())
+
+    left_dim = len(shape_left)
+    right_dim = len(shape_right)
+    result_ndim = max(left_dim, right_dim)
+
+    left_padded = (1,) * (result_ndim - left_dim) + shape_left
+    right_padded = (1,) * (result_ndim - right_dim) + shape_right
+
+    left_axes = []
+    right_axes = []
+
+    for axis_idx, (left_axis, right_axis) in enumerate(zip(left_padded, right_padded)):
+        if right_axis > left_axis:
+            left_axes.append(axis_idx)
+        elif left_axis > right_axis:
+            right_axes.append(axis_idx)
+
+    return tuple(left_axes), tuple(right_axes)

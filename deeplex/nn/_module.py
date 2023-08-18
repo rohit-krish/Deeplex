@@ -1,6 +1,6 @@
 import numpy as np
-from .engine import Tensor
-from .act_func import tanh
+from ..engine import Tensor
+from ._act_func import tanh
 
 
 class Module:
@@ -73,7 +73,7 @@ class RNN(Module):
         params = []
         for l in self.i2h_layers:
             params += l.parameters()
-        
+
         for l in self.h2h_layers:
             params += l.parameters()
 
