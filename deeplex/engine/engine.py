@@ -34,10 +34,6 @@ class Tensor:
         for node in reversed(topo):
             node._backward()
 
-    def totype(self, dtype: str):
-        self.data = self.data.astype(dtype)
-        return self
-
     def reshape(self, *shape):
         res_data = self.data.reshape(shape)
         res = Tensor(res_data, _prev=(self,), _op=f"# {self.shape} -> {res_data.shape}")
@@ -77,8 +73,8 @@ class Tensor:
         res._backward = backward
         return res
 
-    def sum(self, axis=None, keepdims=False, *args, **kwargs):
-        sum_val = np.sum(self.data, axis=axis, keepdims=keepdims, *args, **kwargs)
+    def sum(self, axis=None, keepdims=False, dtype=None):
+        sum_val = np.sum(self.data, axis=axis, keepdims=keepdims, dtype=dtype)
         res = Tensor(sum_val, (self,), "sum")
 
         expand_axis = axis if axis and not keepdims else ()
