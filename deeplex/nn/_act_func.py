@@ -33,8 +33,11 @@ def sigmoid(val: Tensor):
 
 
 # the below softmax implementation is taking advantage of the autograd engine.
-def softmax(val: Tensor, axis):
-    exp_x = val.exp()
-    sum_exp_x = exp_x.sum(axis=axis, keepdims=True, dtype=None)
-    res = exp_x / sum_exp_x
+def softmax(val: Tensor, axis=-1):
+    # applying "log-sum-exp"(subtracting the max from the input) trick to avoid numerical instability when taking exp
+    max_val = Tensor(val.data.max(axis=axis, keepdims=True), device=val.device)
+    exp_shifted_x = (val - max_val).exp()
+
+    sum_exp_shifted_x = exp_shifted_x.sum(axis=axis, keepdims=True)
+    res = exp_shifted_x / sum_exp_shifted_x
     return res
