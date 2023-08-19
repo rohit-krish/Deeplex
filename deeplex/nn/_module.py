@@ -50,9 +50,13 @@ class Linear(Module):
     def __init__(self, in_features, out_features, bias=True, device="cpu"):
         super().__init__(device)
         self.bias = bias
-        self.W = Tensor(self.d.random.uniform(-1, 1, (in_features, out_features)), device=device)
+        self.W = Tensor(
+            self.d.random.uniform(-1, 1, (in_features, out_features)), device=device
+        )
         if self.bias:
-            self.b = Tensor(self.d.random.uniform(-1, 1, (1, out_features)), device=device)
+            self.b = Tensor(
+                self.d.random.uniform(-1, 1, (1, out_features)), device=device
+            )
 
     def __call__(self, X: Tensor):
         out = X @ self.W + self.b
@@ -60,22 +64,22 @@ class Linear(Module):
 
 
 class RNN(Module):
-    def __init__(self, input_size, hidden_size, n_layers, device='cpu'):
+    def __init__(self, input_size, hidden_size, n_layers, device="cpu"):
         super().__init__(device)
         self.hidden_size = hidden_size
         self.n_layers = n_layers
 
         self.i2h_layers = ModuleList(
             [
-                Linear(input_size, hidden_size)
+                Linear(input_size, hidden_size, device=device)
                 if layer_i == 0
-                else Linear(hidden_size, hidden_size)
+                else Linear(hidden_size, hidden_size, device=device)
                 for layer_i in range(n_layers)
             ]
         )
 
         self.h2h_layers = ModuleList(
-            [Linear(hidden_size, hidden_size) for _ in range(n_layers)]
+            [Linear(hidden_size, hidden_size, device=device) for _ in range(n_layers)]
         )
 
     def __call__(self, x: Tensor, h0=None):
@@ -83,12 +87,15 @@ class RNN(Module):
 
         if h0 is None:
             h0 = Tensor(
-                self.d.zeros((self.n_layers, batch_size, self.hidden_size), dtype=object)
+                self.d.zeros((self.n_layers, batch_size, self.hidden_size)),
+                device=self.device,
             )
 
         h_t = h0
 
-        outputs = Tensor(self.d.zeros((seq_len, batch_size, self.hidden_size)))
+        outputs = Tensor(
+            self.d.zeros((seq_len, batch_size, self.hidden_size)), device=self.device
+        )
 
         for t in range(seq_len):
             x_t = x[:, t, :]
