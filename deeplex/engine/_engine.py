@@ -3,16 +3,14 @@ from ..utils import _broadcast_axis
 
 
 class Tensor:
-    def __init__(self, data, _prev=(), _op="", device="cpu", dtype="float32", label=""):
+    def __init__(self, data, _prev=(), device="cpu", dtype="float32"):
         self.d, self.device = get_d__(device)
 
         self.data = self.d.asarray(data, dtype=dtype)
         self.grad = self.d.zeros_like(data, dtype=dtype)
         self._backward = lambda: None
         self._prev = set(_prev)
-        self._op = _op
 
-        self.label = label
         self.shape = self.data.shape
         self.dtype = self.data.dtype
 
@@ -57,9 +55,7 @@ class Tensor:
 
     def reshape(self, *shape):
         res_data = self.data.reshape(shape)
-        res = Tensor(
-            res_data, (self,), f"# {self.shape} -> {res_data.shape}", self.device
-        )
+        res = Tensor(res_data, (self,), self.device)
 
         def backward():
             self.grad += res.grad.reshape(self.shape)
@@ -69,7 +65,7 @@ class Tensor:
 
     @property
     def T(self):
-        res = Tensor(self.data.T, (self,), "^T", self.device)
+        res = Tensor(self.data.T, (self,), self.device)
 
         def backward():
             self.grad += res.grad.T
@@ -78,7 +74,7 @@ class Tensor:
         return res
 
     def exp(self):
-        res = Tensor(self.d.exp(self.data), (self,), "exp", self.device)
+        res = Tensor(self.d.exp(self.data), (self,), self.device)
 
         def backward():
             self.grad = res.data * res.grad
@@ -88,7 +84,7 @@ class Tensor:
 
     def log(self):
         """natural logarithm"""
-        res = Tensor(self.d.log(self.data), (self,), "log", self.device)
+        res = Tensor(self.d.log(self.data), (self,), self.device)
 
         def backward():
             self.grad += res.grad / self.data
@@ -98,7 +94,7 @@ class Tensor:
 
     def sum(self, axis=None, keepdims=False, dtype=None):
         sum_val = self.d.sum(self.data, axis=axis, keepdims=keepdims, dtype=dtype)
-        res = Tensor(sum_val, (self,), "sum", self.device)
+        res = Tensor(sum_val, (self,), self.device)
 
         expand_axis = axis if axis and not keepdims else ()
 
@@ -109,7 +105,7 @@ class Tensor:
 
         res._backward = backward
         return res
-    
+
     def __len__(self):
         return self.shape[0]
 
@@ -119,7 +115,7 @@ class Tensor:
         self.grad[indices] = other.grad.astype(self.grad.dtype).copy()
 
     def __getitem__(self, indices):
-        res = Tensor(self.data[indices], (self,), "indexing", self.device)
+        res = Tensor(self.data[indices], (self,), self.device)
 
         def backward():
             self.grad[indices] += res.grad
@@ -130,7 +126,7 @@ class Tensor:
     def __matmul__(self, other):  # self @ other
         self._check(other, if_tensor=True)
         self._check(other, if_same_device=True)
-        res = Tensor(self.data @ other.data, (self, other), "@", self.device)
+        res = Tensor(self.data @ other.data, (self, other), self.device)
 
         if self.data.ndim == other.data.ndim == 2:
             # backward for matmul of 2D tensors
@@ -194,7 +190,7 @@ class Tensor:
 
     def __add__(self, other):
         if isinstance(other, (int, float)):  # element wise addition
-            res = Tensor(self.data + other, (self,), f"+{other}", self.device)
+            res = Tensor(self.data + other, (self,), self.device)
 
             def backward():
                 self.grad += res.grad
@@ -204,7 +200,7 @@ class Tensor:
 
         elif isinstance(other, Tensor):
             self._check(other, if_same_device=True)
-            res = Tensor(self.data + other.data, (self, other), "+", self.device)
+            res = Tensor(self.data + other.data, (self, other), self.device)
 
             self_shape, other_shape = self.shape, other.shape
 
@@ -234,7 +230,7 @@ class Tensor:
 
     def __mul__(self, other):
         if isinstance(other, (int, float)):  # element wise multiplication
-            res = Tensor(self.data * other, (self,), f"*{other}", self.device)
+            res = Tensor(self.data * other, (self,), self.device)
 
             def backward():
                 self.grad += other * res.grad
@@ -244,7 +240,7 @@ class Tensor:
 
         elif isinstance(other, Tensor):
             self._check(other, if_same_device=True)
-            res = Tensor(self.data * other.data, (self, other), "*", self.device)
+            res = Tensor(self.data * other.data, (self, other), self.device)
 
             self_shape, other_shape = self.shape, other.shape
 
@@ -281,7 +277,7 @@ class Tensor:
 
         if isinstance(other, (int, float)):
             res_data = _neg_pow(self.data, other)
-            res = Tensor(res_data, (self,), f"**{other}", self.device)
+            res = Tensor(res_data, (self,), self.device)
 
             def backward():
                 self.grad += other * _neg_pow(self.data, other - 1) * res.grad
@@ -297,7 +293,7 @@ class Tensor:
             self_data = self.data.astype("float64")
 
             res_data = self.d.vectorize(_neg_pow)(self_data, other_data)
-            res = Tensor(res_data, (self, other), f"^{other_data}", self.device)
+            res = Tensor(res_data, (self, other), self.device)
 
             data_pow_other_min_1 = self.d.vectorize(_neg_pow)(self_data, other_data - 1)
             data_pow_other = self.d.vectorize(_neg_pow)(self_data, other_data)
