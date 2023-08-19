@@ -110,6 +110,11 @@ class Tensor:
         res._backward = backward
         return res
 
+    def __setitem__(self, indices, other):
+        self._check(other, if_tensor=True)
+        self.data[indices] = other.data.astype(self.data.dtype).copy()
+        self.grad[indices] = other.grad.astype(self.grad.dtype).copy()
+
     def __getitem__(self, indices):
         res = Tensor(self.data[indices], (self,), "indexing", self.device)
 
