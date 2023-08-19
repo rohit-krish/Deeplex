@@ -109,6 +109,9 @@ class Tensor:
 
         res._backward = backward
         return res
+    
+    def __len__(self):
+        return self.shape[0]
 
     def __setitem__(self, indices, other):
         self._check(other, if_tensor=True)
