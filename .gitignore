@@ -1,3 +1,3 @@
 links.md
-deeplex/__pycache__
-deeplex/optim/__pycache__
+*/__pycache__
+*/*/__pycache__
