@@ -5,7 +5,7 @@ Deeplex is a basic Deep Learning Framework, built on top of an AutoGrad Engine.
 - [x] computation on GPU aswell
 - [ ] add .requires_grad in Tensor
 - [ ] add the 'with block' of no_grad
-- [ ] automatically list the parameters
+- [x] automatically list the parameters
 - [ ] implement more loss functions
 - [x] Adam, RMSProp, SGD+Momentum
 - [ ] learning rate schedulers

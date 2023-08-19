@@ -1,1 +1,1 @@
-from _module import Module, Linear, RNN
+from ._module import Module, ModuleList, Linear, RNN
