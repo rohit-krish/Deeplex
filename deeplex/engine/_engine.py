@@ -102,6 +102,21 @@ class Tensor:
         for node in reversed(topo):
             node._backward()
 
+    def clip(
+        self,
+        min=1e-7,
+        max=1 - 1e-7,
+        clip_grad=False,
+        g_min=1e-7,
+        g_max=1 - 1e-7,
+    ):
+        self.data = self.data.clip(min, max)
+
+        if clip_grad and (self.grad != None):
+            self.grad = self.grad.clip(g_min, g_max)
+
+        return self
+
     def reshape(self, *shape):
         res = Tensor(self.data.reshape(shape), self.device, self.dtype, (self,))
 
