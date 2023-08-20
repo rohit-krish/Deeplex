@@ -4,6 +4,13 @@ from ._act_func import tanh
 
 
 class ModuleList:
+    """
+    A container for holding a list of neural network modules.
+
+    Args:
+        modules (list): List of neural network modules.
+    """
+
     def __init__(self, modules):
         self.modules = modules
 
@@ -12,17 +19,39 @@ class ModuleList:
 
 
 class Module:
+    """
+    Base class for neural network modules.
+
+    Args:
+        device (str): Device on which the module's tensors should reside.
+    """
+
     def __init__(self, device: str):
         self.d, self.device = get_d__(device)
 
     def zero_grad(self):
+        """
+        Reset gradients of all tensors in the module to zero.
+        """
         for p in self.parameters():
             p.grad = 0
 
     def parameters(self):
+        """
+        Get a list of tensors in the module with `requires_grad` set to True.
+
+        Returns:
+            list: List of trainable tensors in the module.
+        """
         return [t for t in self._get_tensors() if t.requires_grad]
 
     def _get_tensors(self):
+        """
+        Recursively retrieve all tensors in the module.
+
+        Returns:
+            list: List of all tensors in the module.
+        """
         tensors = []
 
         for _, val in self.__dict__.items():
@@ -37,6 +66,15 @@ class Module:
         return tensors
 
     def to(self, device: str):
+        """
+        Move the module and its tensors to a specified device.
+
+        Args:
+            device (str): Device to move the module's tensors to.
+
+        Returns:
+            Module: The module with tensors residing on the new device.
+        """
         if device == self.device:
             return self
 
@@ -52,6 +90,17 @@ class Linear(Module):
     def __init__(
         self, in_features, out_features, bias=True, device="cpu", dtype="float32"
     ):
+        """
+        Fully connected linear layer.
+
+        Args:
+            in_features (int): Number of input features.
+            out_features (int): Number of output features.
+            bias (bool, optional): Whether to include bias terms. Default is True.
+            device (str, optional): Device on which the layer's tensors should reside. Default is "cpu".
+            dtype (str, optional): Data type of the tensors. Default is "float32".
+        """
+
         super().__init__(device)
         self.bias = bias
         self.W = Tensor(
@@ -77,6 +126,16 @@ class RNN(Module):
     def __init__(
         self, input_size, hidden_size, n_layers, device="cpu", dtype="float32"
     ):
+        """
+        Recurrent Neural Network (RNN) module.
+
+        Args:
+            input_size (int): Size of the input features.
+            hidden_size (int): Size of the hidden state.
+            n_layers (int): Number of RNN layers.
+            device (str, optional): Device on which the module's tensors should reside. Default is "cpu".
+            dtype (str, optional): Data type of the tensors. Default is "float32".
+        """
         super().__init__(device)
         self.hidden_size = hidden_size
         self.n_layers = n_layers

@@ -4,14 +4,26 @@ from .. import get_d__
 
 class Optimizer:
     def __init__(self, parameters, lr, device: str):
+        """
+        Base class for optimizers.
+
+        Args:
+            parameters (list): List of tensors representing the trainable parameters.
+            lr (float): Learning rate for optimization.
+            device (str): Device on which the optimizer's computations should be performed.
+        """
         self.d, self.device = get_d__(device)
         self.parameters = parameters
         self.lr = lr
 
     def step(self):
+        """Update parameters"""
         raise NotImplementedError
 
     def zero_grad(self):
+        """
+        Reset gradients of all parameters to zero.
+        """
         for p in self.parameters:
             p.grad = 0
 
@@ -28,6 +40,15 @@ class Optimizer:
 
 class SGD(Optimizer):
     def __init__(self, parameters, lr, momentum=0.9, device="cpu"):
+        """
+        Stochastic Gradient Descent (SGD) optimizer.
+
+        Args:
+            parameters (list): List of tensors representing the trainable parameters.
+            lr (float): Learning rate for optimization.
+            momentum (float, optional): Momentum factor. Default is 0.9.
+            device (str, optional): Device on which the optimizer's computations should be performed. Default is "cpu".
+        """
         super().__init__(parameters, lr, device)
         self.momentum = momentum
         self.velocities = [self.d.zeros_like(p.data) for p in self.parameters]
@@ -40,6 +61,16 @@ class SGD(Optimizer):
 
 class RMSProp(Optimizer):
     def __init__(self, parameters, lr, decay=0.99, eps=1e-8, device="cpu"):
+        """
+        RMSProp optimizer.
+
+        Args:
+            parameters (list): List of tensors representing the trainable parameters.
+            lr (float): Learning rate for optimization.
+            decay (float, optional): Decay factor for accumulating squared gradients. Default is 0.99.
+            eps (float, optional): Small value to prevent division by zero. Default is 1e-8.
+            device (str, optional): Device on which the optimizer's computations should be performed. Default is "cpu".
+        """
         super().__init__(parameters, lr, device)
         self.decay = decay
         self.eps = eps
@@ -53,6 +84,17 @@ class RMSProp(Optimizer):
 
 class Adam(Optimizer):
     def __init__(self, parameters, lr, beta1=0.9, beta2=0.99, eps=1e-8, device="cpu"):
+        """
+        Adam optimizer.
+
+        Args:
+            parameters (list): List of tensors representing the trainable parameters.
+            lr (float): Learning rate for optimization.
+            beta1 (float, optional): Exponential decay rate for the first moment estimates. Default is 0.9.
+            beta2 (float, optional): Exponential decay rate for the second moment estimates. Default is 0.99.
+            eps (float, optional): Small value to prevent division by zero. Default is 1e-8.
+            device (str, optional): Device on which the optimizer's computations should be performed. Default is "cpu".
+        """
         super().__init__(parameters, lr, device)
         self.beta1 = beta1
         self.beta2 = beta2

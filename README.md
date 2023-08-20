@@ -53,7 +53,6 @@ cupy  # tested version 11.0.0
 - [ ] Conv2d, RNN, LSTM, GRU
 - [ ] dataloader
 - [ ] testes
-- [ ] add docs inside code
 - [ ] update README.md
 - [ ] add setup.py
 - [ ] etc...

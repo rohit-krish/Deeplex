@@ -1,14 +1,28 @@
 def broadcast_axis__(shape_left, shape_right):
     """
-    Determine the axes along which broadcasting occurs between two shapes.
+    Determine the axes along which broadcasting occurs between two tensor shapes.
+
+    This function identifies the axes along which broadcasting will happen when two tensors
+    with different shapes are used in operations. Broadcasting allows compatible tensors
+    to be combined element-wise even when their shapes are not exactly the same.
 
     Args:
-        shape_left: Shape of the left tensor.
-        shape_right: Shape of the right tensor.
+        shape_left (tuple): The shape of the left tensor.
+        shape_right (tuple): The shape of the right tensor.
 
     Returns:
-        A tuple of two tuples representing the axes along which broadcasting occurs.
+        tuple: A tuple containing two inner tuples representing the axes along which
+               broadcasting occurs for the left and right tensors, respectively. If no
+               broadcasting is necessary, both inner tuples are empty.
+
+    Example:
+        >>> shape_left = (3, 1, 5)
+        >>> shape_right = (1, 5)
+        >>> broadcast_axis__(shape_left, shape_right) # ((0, 1), (0,))
+        In this example, the first and second axes of the left tensor will be broadcasted
+        to match the corresponding dimensions of the right tensor along the first axis.
     """
+
     if shape_left == shape_right:
         return ((), ())
 
