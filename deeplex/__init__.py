@@ -20,3 +20,6 @@ def get_d__(device):
             raise RuntimeError("GPU (cupy) not available.")
     else:
         raise ValueError("Unknown value passed as device")
+
+def dLex():
+    return cp if GPU_AVAIL else np

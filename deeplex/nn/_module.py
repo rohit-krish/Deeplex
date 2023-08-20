@@ -20,21 +20,21 @@ class Module:
             p.grad = 0
 
     def parameters(self):
-        """
-        TODO: distinguish between a tensor which has to learn(original parameter, (you can do that by creating another method like nn.Parameter)) and ones which doesn't has to learn.
-        """
-        parameters = []
+        return [t for t in self._get_tensors() if t.requires_grad]
+
+    def _get_tensors(self):
+        tensors = []
 
         for _, val in self.__dict__.items():
             if isinstance(val, Tensor):
-                parameters.append(val)
+                tensors.append(val)
             elif isinstance(val, ModuleList):
                 for v in val:
-                    parameters += v.parameters()
+                    tensors += v._get_tensors()
             elif isinstance(val, (Linear, RNN)):
-                parameters += val.parameters()
+                tensors += val._get_tensors()
 
-        return parameters
+        return tensors
 
     def to(self, device: str):
         if device == self.device:
@@ -42,20 +42,30 @@ class Module:
 
         self.d, self.device = get_d__(device)
 
-        for tensor in self.parameters():
+        for tensor in self._get_tensors():
             tensor.to(device)
+
+        return self
 
 
 class Linear(Module):
-    def __init__(self, in_features, out_features, bias=True, device="cpu"):
+    def __init__(
+        self, in_features, out_features, bias=True, device="cpu", dtype="float32"
+    ):
         super().__init__(device)
         self.bias = bias
         self.W = Tensor(
-            self.d.random.uniform(-1, 1, (in_features, out_features)), device=device
+            self.d.random.uniform(-1, 1, (in_features, out_features)),
+            device,
+            dtype,
+            requires_grad=True,
         )
         if self.bias:
             self.b = Tensor(
-                self.d.random.uniform(-1, 1, (1, out_features)), device=device
+                self.d.random.uniform(-1, 1, (1, out_features)),
+                device,
+                dtype,
+                requires_grad=True,
             )
 
     def __call__(self, X: Tensor):
@@ -64,22 +74,28 @@ class Linear(Module):
 
 
 class RNN(Module):
-    def __init__(self, input_size, hidden_size, n_layers, device="cpu"):
+    def __init__(
+        self, input_size, hidden_size, n_layers, device="cpu", dtype="float32"
+    ):
         super().__init__(device)
         self.hidden_size = hidden_size
         self.n_layers = n_layers
+        self.dtype = dtype
 
         self.i2h_layers = ModuleList(
             [
-                Linear(input_size, hidden_size, device=device)
+                Linear(input_size, hidden_size, device=device, dtype=dtype)
                 if layer_i == 0
-                else Linear(hidden_size, hidden_size, device=device)
+                else Linear(hidden_size, hidden_size, device=device, dtype=dtype)
                 for layer_i in range(n_layers)
             ]
         )
 
         self.h2h_layers = ModuleList(
-            [Linear(hidden_size, hidden_size, device=device) for _ in range(n_layers)]
+            [
+                Linear(hidden_size, hidden_size, device=device, dtype=dtype)
+                for _ in range(n_layers)
+            ]
         )
 
     def __call__(self, x: Tensor, h0=None):
@@ -88,13 +104,16 @@ class RNN(Module):
         if h0 is None:
             h0 = Tensor(
                 self.d.zeros((self.n_layers, batch_size, self.hidden_size)),
-                device=self.device,
+                self.device,
+                self.dtype,
             )
 
         h_t = h0
 
         outputs = Tensor(
-            self.d.zeros((seq_len, batch_size, self.hidden_size)), device=self.device
+            self.d.zeros((seq_len, batch_size, self.hidden_size)),
+            self.device,
+            self.dtype,
         )
 
         for t in range(seq_len):
