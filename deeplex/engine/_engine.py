@@ -79,6 +79,9 @@ class Tensor:
         return self
 
     def backward(self):
+        if self.requires_grad == False:
+            raise RuntimeError("Doesn't have a gradient (self.requires_grad is False)")
+
         # build the topological graph
         topo = []
         visited = set()
@@ -93,15 +96,11 @@ class Tensor:
         build_top(self)
 
         # set the gradient of the current node to ones
-        self.grad = self.d.ones_like(self.data)
+        self.grad = self.d.ones_like(self.grad)
 
         # run the _backward for all nodes
         for node in reversed(topo):
             node._backward()
-
-        # if the requires_grad is False then we shoudn't be having a grad
-        if self.requires_grad == False:
-            self.grad = None
 
     def clip(
         self,
@@ -215,7 +214,7 @@ class Tensor:
         self._check(other, if_same_device=True)
         res = Tensor(self.data @ other.data, self.device, self.dtype, (self, other))
 
-        if (self.requires_grad or other.requires_grad) == False:
+        if self.requires_grad == other.requires_grad == False:
             return res
 
         if self.grad_enabled:
@@ -286,7 +285,8 @@ class Tensor:
 
             res._backward = backward
             res.requires_grad = True
-            return res
+
+        return res
 
     def __add__(self, other):
         if isinstance(other, (int, float)):  # element wise addition
@@ -306,7 +306,7 @@ class Tensor:
             self._check(other, if_same_device=True)
             res = Tensor(self.data + other.data, self.device, self.dtype, (self, other))
 
-            if (self.requires_grad or other.requires_grad) == False:
+            if self.requires_grad == other.requires_grad == False:
                 return res
 
             if self.grad_enabled:
@@ -337,7 +337,8 @@ class Tensor:
 
                 res._backward = backward
                 res.requires_grad = True
-                return res
+
+            return res
         else:
             self._check(None, raise_error_right_away=True)
 
@@ -359,7 +360,7 @@ class Tensor:
             self._check(other, if_same_device=True)
             res = Tensor(self.data * other.data, self.device, self.dtype, (self, other))
 
-            if (self.requires_grad or other.requires_grad) == False:
+            if self.requires_grad == other.requires_grad == False:
                 return res
 
             if self.grad_enabled:
@@ -392,7 +393,8 @@ class Tensor:
 
                 res._backward = backward
                 res.requires_grad = True
-                return res
+
+            return res
         else:
             self._check(None, raise_error_right_away=True)
 
@@ -426,7 +428,7 @@ class Tensor:
             res_data = self.d.vectorize(_neg_pow)(self_data, other_data)
             res = Tensor(res_data, self.device, "float64", (self, other))
 
-            if (self.requires_grad or other.requires_grad) == False:
+            if self.requires_grad == other.requires_grad == False:
                 return res
 
             if self.grad_enabled:
@@ -468,7 +470,8 @@ class Tensor:
 
                 res._backward = backward
                 res.requires_grad = True
-                return res
+
+            return res
         else:
             self._check(None, raise_error_right_away=True)
 
