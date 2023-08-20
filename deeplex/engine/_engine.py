@@ -79,9 +79,6 @@ class Tensor:
         return self
 
     def backward(self):
-        if self._r_grad == False:
-            raise RuntimeError("Doesn't have a gradient (self.requires_grad is False)")
-
         # build the topological graph
         topo = []
         visited = set()
@@ -96,11 +93,15 @@ class Tensor:
         build_top(self)
 
         # set the gradient of the current node to ones
-        self.grad = self.d.ones_like(self.grad)
+        self.grad = self.d.ones_like(self.data)
 
         # run the _backward for all nodes
         for node in reversed(topo):
             node._backward()
+
+        # if the requires_grad is False then we shoudn't be having a grad
+        if self.requires_grad == False:
+            self.grad = None
 
     def clip(
         self,
