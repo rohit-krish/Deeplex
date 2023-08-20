@@ -70,6 +70,7 @@ class Linear(Module):
 
     def __call__(self, X: Tensor):
         out = X @ self.W + self.b
+        out.requires_grad = False
         return out
 
 
