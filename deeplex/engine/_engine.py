@@ -49,12 +49,7 @@ class Tensor:
                 "Invalid assignment in requires_grad (only a boolean is allowed)"
             )
 
-        if (
-            (self._r_grad is False)
-            and (self.grad is None)
-            and (val is True)
-            and (self.grad_enabled)
-        ):
+        if (self.grad is None) and (val is True):
             self.grad = self.d.zeros_like(self.data, dtype=self.dtype)
 
         self._r_grad = val
@@ -243,7 +238,9 @@ class Tensor:
                         self.grad += self.d.reshape(
                             self.d.sum(
                                 self.d.squeeze(
-                                    self.d.expand_dims(res.grad, axis=result_expand_axis)
+                                    self.d.expand_dims(
+                                        res.grad, axis=result_expand_axis
+                                    )
                                     @ self.d.expand_dims(
                                         other.data, axis=other_expand_axis
                                     ).swapaxes(-1, -2),
@@ -261,7 +258,9 @@ class Tensor:
                                     self.d.expand_dims(
                                         self.grad, axis=self_expand_axis
                                     ).swapaxes(-1, -2)
-                                    @ self.d.expand_dims(res.grad, axis=result_expand_axis),
+                                    @ self.d.expand_dims(
+                                        res.grad, axis=result_expand_axis
+                                    ),
                                     axis=other_expand_axis,
                                 ),
                                 axis=axis_other,
@@ -415,7 +414,9 @@ class Tensor:
                 return res
 
             if self.grad_enabled:
-                data_pow_other_min_1 = self.d.vectorize(_neg_pow)(self_data, other_data - 1)
+                data_pow_other_min_1 = self.d.vectorize(_neg_pow)(
+                    self_data, other_data - 1
+                )
                 data_pow_other = self.d.vectorize(_neg_pow)(self_data, other_data)
 
                 if self.shape == other.shape:
@@ -443,7 +444,8 @@ class Tensor:
                         if other.requires_grad:
                             other.grad += self.d.reshape(
                                 self.d.sum(
-                                    data_pow_other * self.d.log(self_data), axis=axis_other
+                                    data_pow_other * self.d.log(self_data),
+                                    axis=axis_other,
                                 ),
                                 other.shape,
                             )
@@ -455,30 +457,24 @@ class Tensor:
             self._check(None, raise_error_right_away=True)
 
     def __radd__(self, other):  # other(dtype -> not Tensor) + self
-        self._check(other, if_int_or_float=True)
         return self + other
 
     def __rmul__(self, other):  # other(dtype -> not Tensor) * self
-        self._check(other, if_int_or_float=True)
         return self * other
 
     def __truediv__(self, other):  # self / other
-        self._check(other, if_int_or_float_or_tensor=True)
         return self * (other**-1)
 
     def __rtruediv__(self, other):  # other(dtype -> not Tensor) / self
-        self._check(other, if_int_or_float=True)
         return (self**-1) * other
 
     def __neg__(self):  # -self
         return self * -1
 
     def __sub__(self, other):  # self - other
-        self._check(other, if_int_or_float_or_tensor=True)
         return self + (-other)
 
     def __rsub__(self, other):  # other(dtype -> not Tensor) - self
-        self._check(other, if_int_or_float=True)
         return -self + other
 
     def __str__(self):
@@ -490,23 +486,11 @@ class Tensor:
         return str(self)
 
     def _check(
-        self,
-        other,
-        raise_error_right_away=False,
-        if_tensor=False,
-        if_int_or_float=False,
-        if_int_or_float_or_tensor=False,
-        if_same_device=False,
+        self, other, raise_error_right_away=False, if_tensor=False, if_same_device=False
     ):
         error_str = "Unsupported datatype :("
 
-        if if_int_or_float_or_tensor and (not isinstance(other, (int, float, Tensor))):
-            raise_error_right_away = True
-
-        elif if_int_or_float and (not isinstance(other, (int, float))):
-            raise_error_right_away = True
-
-        elif if_tensor and (not isinstance(other, Tensor)):
+        if if_tensor and (not isinstance(other, Tensor)):
             raise_error_right_away = True
 
         elif if_same_device and (self.device != other.device):
