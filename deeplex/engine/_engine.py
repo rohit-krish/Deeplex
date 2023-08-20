@@ -3,7 +3,18 @@ from .. import get_d__
 from ..utils import broadcast_axis__
 
 
+class no_grad:
+    def __enter__(self):
+        self.prev = Tensor.grad_enabled
+        Tensor.grad_enabled = False
+
+    def __exit__(self, *args):
+        Tensor.grad_enabled = self.prev
+
+
 class Tensor:
+    grad_enabled = True
+
     def __init__(
         self,
         data,
@@ -16,9 +27,13 @@ class Tensor:
 
         self._r_grad = requires_grad
         self.data = self.d.asarray(data, dtype=dtype)
-        self.grad = self.d.zeros_like(data, dtype=dtype) if requires_grad else None
+        self.grad = (
+            self.d.zeros_like(data, dtype=dtype)
+            if requires_grad and self.grad_enabled
+            else None
+        )
         self._backward = lambda: None
-        self._prev = set([p for p in _prev if p.requires_grad])
+        self._prev = set([p for p in _prev if p.requires_grad and self.grad_enabled])
 
         self.shape = self.data.shape
         self.dtype = self.data.dtype
@@ -30,10 +45,18 @@ class Tensor:
     @requires_grad.setter
     def requires_grad(self, val: bool):
         if type(val) != bool:
-            raise ValueError("Invalid assignment in requires_grad (only bool is allowed)")
+            raise ValueError(
+                "Invalid assignment in requires_grad (only a boolean is allowed)"
+            )
 
-        if (self._r_grad == False) and (self.grad is None):
+        if (
+            (self._r_grad is False)
+            and (self.grad is None)
+            and (val is True)
+            and (self.grad_enabled)
+        ):
             self.grad = self.d.zeros_like(self.data, dtype=self.dtype)
+
         self._r_grad = val
 
     def to(self, device: str):
@@ -45,12 +68,18 @@ class Tensor:
         if self.device == "cpu":
             # gpu(cupy) -> cpu(numpy)
             self.data = self.data.get()
-            self.grad = self.grad.get() if self.requires_grad else None
+            self.grad = (
+                self.grad.get() if self.requires_grad and self.grad_enabled else None
+            )
         else:
             # cpu(numpy) -> gpu(cupy)
             # now self.d is cupy
             self.data = self.d.asarray(self.data)
-            self.grad = self.d.asarray(self.grad) if self.requires_grad else None
+            self.grad = (
+                self.d.asarray(self.grad)
+                if self.requires_grad and self.grad_enabled
+                else None
+            )
 
         return self
 
@@ -81,7 +110,7 @@ class Tensor:
     def reshape(self, *shape):
         res = Tensor(self.data.reshape(shape), self.device, self.dtype, (self,))
 
-        if self.requires_grad:
+        if self.requires_grad and self.grad_enabled:
 
             def backward():
                 self.grad += res.grad.reshape(self.shape)
@@ -95,7 +124,7 @@ class Tensor:
     def T(self):
         res = Tensor(self.data.T, self.device, self.dtype, (self,))
 
-        if self.requires_grad:
+        if self.requires_grad and self.grad_enabled:
 
             def backward():
                 self.grad += res.grad.T
@@ -108,7 +137,7 @@ class Tensor:
     def exp(self):
         res = Tensor(self.d.exp(self.data), self.device, self.dtype, (self,))
 
-        if self.requires_grad:
+        if self.requires_grad and self.grad_enabled:
 
             def backward():
                 self.grad = res.data * res.grad
@@ -122,7 +151,7 @@ class Tensor:
         """natural logarithm"""
         res = Tensor(self.d.log(self.data), self.device, self.dtype, (self,))
 
-        if self.requires_grad:
+        if self.requires_grad and self.grad_enabled:
 
             def backward():
                 self.grad += res.grad / self.data
@@ -136,7 +165,7 @@ class Tensor:
         sum_val = self.d.sum(self.data, axis=axis, keepdims=keepdims, dtype=dtype)
         res = Tensor(sum_val, self.device, self.dtype, (self,))
 
-        if self.requires_grad:
+        if self.requires_grad and self.grad_enabled:
             expand_axis = axis if axis and not keepdims else ()
 
             def backward():
@@ -160,7 +189,7 @@ class Tensor:
     def __getitem__(self, indices):
         res = Tensor(self.data[indices], self.device, self.dtype, (self,))
 
-        if self.requires_grad:
+        if self.requires_grad and self.grad_enabled:
 
             def backward():
                 self.grad[indices] += res.grad
@@ -178,76 +207,77 @@ class Tensor:
         if (self.requires_grad or other.requires_grad) == False:
             return res
 
-        if self.data.ndim == other.data.ndim == 2:
-            # backward for matmul of 2D tensors
-            def backward():
-                if self.requires_grad:
-                    self.grad += res.grad @ other.data.T
-                if other.requires_grad:
-                    other.grad += self.data.T @ res.grad
+        if self.grad_enabled:
+            if self.data.ndim == other.data.ndim == 2:
+                # backward for matmul of 2D tensors
+                def backward():
+                    if self.requires_grad:
+                        self.grad += res.grad @ other.data.T
+                    if other.requires_grad:
+                        other.grad += self.data.T @ res.grad
 
-        else:
-            # Other cases
-            if self.data.ndim == 1:
-                self_expand_axis = (0,)
-                self_expanded_shape = (1,) + self.shape
             else:
-                self_expand_axis = ()
-                self_expanded_shape = self.shape
+                # Other cases
+                if self.data.ndim == 1:
+                    self_expand_axis = (0,)
+                    self_expanded_shape = (1,) + self.shape
+                else:
+                    self_expand_axis = ()
+                    self_expanded_shape = self.shape
 
-            if other.data.ndim == 1:
-                other_expand_axis = (-1,)
-                other_expanded_shape = (1,) + other.shape
-            else:
-                other_expand_axis = ()
-                other_expanded_shape = other.shape
+                if other.data.ndim == 1:
+                    other_expand_axis = (-1,)
+                    other_expanded_shape = (1,) + other.shape
+                else:
+                    other_expand_axis = ()
+                    other_expanded_shape = other.shape
 
-            # Determine the axes for broadcasting and reduction
-            result_expand_axis = self_expand_axis + other_expand_axis
-            axis_self, axis_other = broadcast_axis__(
-                self_expanded_shape[:-2], other_expanded_shape[:-2]
-            )
+                # Determine the axes for broadcasting and reduction
+                result_expand_axis = self_expand_axis + other_expand_axis
+                axis_self, axis_other = broadcast_axis__(
+                    self_expanded_shape[:-2], other_expanded_shape[:-2]
+                )
 
-            def backward():
-                if self.requires_grad:
-                    self.grad += self.d.reshape(
-                        self.d.sum(
-                            self.d.squeeze(
-                                self.d.expand_dims(res.grad, axis=result_expand_axis)
-                                @ self.d.expand_dims(
-                                    other.data, axis=other_expand_axis
-                                ).swapaxes(-1, -2),
-                                axis=self_expand_axis,
+                def backward():
+                    if self.requires_grad:
+                        self.grad += self.d.reshape(
+                            self.d.sum(
+                                self.d.squeeze(
+                                    self.d.expand_dims(res.grad, axis=result_expand_axis)
+                                    @ self.d.expand_dims(
+                                        other.data, axis=other_expand_axis
+                                    ).swapaxes(-1, -2),
+                                    axis=self_expand_axis,
+                                ),
+                                axis=axis_self,
                             ),
-                            axis=axis_self,
-                        ),
-                        self.shape,
-                    )
+                            self.shape,
+                        )
 
-                if other.requires_grad:
-                    other.grad += self.d.reshape(
-                        self.d.sum(
-                            self.d.squeeze(
-                                self.d.expand_dims(
-                                    self.grad, axis=self_expand_axis
-                                ).swapaxes(-1, -2)
-                                @ self.d.expand_dims(res.grad, axis=result_expand_axis),
-                                axis=other_expand_axis,
+                    if other.requires_grad:
+                        other.grad += self.d.reshape(
+                            self.d.sum(
+                                self.d.squeeze(
+                                    self.d.expand_dims(
+                                        self.grad, axis=self_expand_axis
+                                    ).swapaxes(-1, -2)
+                                    @ self.d.expand_dims(res.grad, axis=result_expand_axis),
+                                    axis=other_expand_axis,
+                                ),
+                                axis=axis_other,
                             ),
-                            axis=axis_other,
-                        ),
-                        other.shape,
-                    )
+                            other.shape,
+                        )
 
-        res._backward = backward
-        res.requires_grad = True
-        return res
+            res._backward = backward
+            res.requires_grad = True
+            return res
 
     def __add__(self, other):
         if isinstance(other, (int, float)):  # element wise addition
             res = Tensor(self.data + other, self.device, self.dtype, (self,))
 
-            if self.requires_grad:
+            if self.requires_grad and self.grad_enabled:
 
                 def backward():
                     self.grad += res.grad
@@ -264,34 +294,35 @@ class Tensor:
             if (self.requires_grad or other.requires_grad) == False:
                 return res
 
-            self_shape, other_shape = self.shape, other.shape
+            if self.grad_enabled:
+                self_shape, other_shape = self.shape, other.shape
 
-            if self_shape == other_shape:
-                # backward for element-wise addition of tensors with same shape
-                def backward():
-                    if self.requires_grad:
-                        self.grad += res.grad
-                    if other.requires_grad:
-                        other.grad += res.grad
+                if self_shape == other_shape:
+                    # backward for element-wise addition of tensors with same shape
+                    def backward():
+                        if self.requires_grad:
+                            self.grad += res.grad
+                        if other.requires_grad:
+                            other.grad += res.grad
 
-            else:
-                # determine the axes along the broadcasting occurs
-                axis_self, axis_other = broadcast_axis__(self_shape, other_shape)
+                else:
+                    # determine the axes along the broadcasting occurs
+                    axis_self, axis_other = broadcast_axis__(self_shape, other_shape)
 
-                # backward for addition of tensors of unequal shapes (basically means -> addition with broadcasting)
-                def backward():
-                    if self.requires_grad:
-                        self.grad += self.d.reshape(
-                            self.d.sum(res.grad, axis=axis_self), self_shape
-                        )
-                    if other.requires_grad:
-                        other.grad += self.d.reshape(
-                            self.d.sum(res.grad, axis=axis_other), other_shape
-                        )
+                    # backward for addition of tensors of unequal shapes (basically means -> addition with broadcasting)
+                    def backward():
+                        if self.requires_grad:
+                            self.grad += self.d.reshape(
+                                self.d.sum(res.grad, axis=axis_self), self_shape
+                            )
+                        if other.requires_grad:
+                            other.grad += self.d.reshape(
+                                self.d.sum(res.grad, axis=axis_other), other_shape
+                            )
 
-            res._backward = backward
-            res.requires_grad = True
-            return res
+                res._backward = backward
+                res.requires_grad = True
+                return res
         else:
             self._check(None, raise_error_right_away=True)
 
@@ -299,7 +330,7 @@ class Tensor:
         if isinstance(other, (int, float)):  # element wise multiplication
             res = Tensor(self.data * other, self.device, self.dtype, (self,))
 
-            if self.requires_grad:
+            if self.requires_grad and self.grad_enabled:
 
                 def backward():
                     self.grad += other * res.grad
@@ -316,36 +347,37 @@ class Tensor:
             if (self.requires_grad or other.requires_grad) == False:
                 return res
 
-            self_shape, other_shape = self.shape, other.shape
+            if self.grad_enabled:
+                self_shape, other_shape = self.shape, other.shape
 
-            if self_shape == other_shape:
-                # backward for element-wise multiplication of tensors with same shape
-                def backward():
-                    if self.requires_grad:
-                        self.grad += other.data * res.grad
-                    if other.requires_grad:
-                        other.grad += self.data * res.grad
+                if self_shape == other_shape:
+                    # backward for element-wise multiplication of tensors with same shape
+                    def backward():
+                        if self.requires_grad:
+                            self.grad += other.data * res.grad
+                        if other.requires_grad:
+                            other.grad += self.data * res.grad
 
-            else:
-                # determine the axes along the broadcasting occurs
-                axis_self, axis_other = broadcast_axis__(self_shape, other_shape)
+                else:
+                    # determine the axes along the broadcasting occurs
+                    axis_self, axis_other = broadcast_axis__(self_shape, other_shape)
 
-                # backward for multiplication of tensors of unequal shapes (basically means -> addition with broadcasting)
-                def backward():
-                    if self.requires_grad:
-                        self.grad += self.d.reshape(
-                            self.d.sum(other.data * res.grad, axis=axis_self),
-                            self_shape,
-                        )
-                    if other.requires_grad:
-                        other.grad += self.d.reshape(
-                            self.d.sum(self.data * res.grad, axis=axis_other),
-                            other_shape,
-                        )
+                    # backward for multiplication of tensors of unequal shapes (basically means -> addition with broadcasting)
+                    def backward():
+                        if self.requires_grad:
+                            self.grad += self.d.reshape(
+                                self.d.sum(other.data * res.grad, axis=axis_self),
+                                self_shape,
+                            )
+                        if other.requires_grad:
+                            other.grad += self.d.reshape(
+                                self.d.sum(self.data * res.grad, axis=axis_other),
+                                other_shape,
+                            )
 
-            res._backward = backward
-            res.requires_grad = True
-            return res
+                res._backward = backward
+                res.requires_grad = True
+                return res
         else:
             self._check(None, raise_error_right_away=True)
 
@@ -359,7 +391,7 @@ class Tensor:
         if isinstance(other, (int, float)):
             res = Tensor(_neg_pow(self.data, other), self.device, self.dtype, (self,))
 
-            if self.requires_grad:
+            if self.requires_grad and self.grad_enabled:
 
                 def backward():
                     self.grad += other * _neg_pow(self.data, other - 1) * res.grad
@@ -382,42 +414,43 @@ class Tensor:
             if (self.requires_grad or other.requires_grad) == False:
                 return res
 
-            data_pow_other_min_1 = self.d.vectorize(_neg_pow)(self_data, other_data - 1)
-            data_pow_other = self.d.vectorize(_neg_pow)(self_data, other_data)
+            if self.grad_enabled:
+                data_pow_other_min_1 = self.d.vectorize(_neg_pow)(self_data, other_data - 1)
+                data_pow_other = self.d.vectorize(_neg_pow)(self_data, other_data)
 
-            if self.shape == other.shape:
-                # backward for element-wise powering of tensors with same shape
-                def backward():
-                    if self.requires_grad:
-                        self.grad += other_data * data_pow_other_min_1 * res.grad
-                    if other.requires_grad:
-                        other.grad += data_pow_other * self.d.log(self_data)
+                if self.shape == other.shape:
+                    # backward for element-wise powering of tensors with same shape
+                    def backward():
+                        if self.requires_grad:
+                            self.grad += other_data * data_pow_other_min_1 * res.grad
+                        if other.requires_grad:
+                            other.grad += data_pow_other * self.d.log(self_data)
 
-            else:
-                # determine the axes along the broadcasting occurs
-                axis_self, axis_other = broadcast_axis__(self.shape, other.shape)
+                else:
+                    # determine the axes along the broadcasting occurs
+                    axis_self, axis_other = broadcast_axis__(self.shape, other.shape)
 
-                # backward for multiplication of tensors of unequal shapes (basically means -> addition with broadcasting)
-                def backward():
-                    if self.requires_grad:
-                        self.grad += self.d.reshape(
-                            self.d.sum(
-                                other_data * data_pow_other_min_1 * res.grad,
-                                axis=axis_self,
-                            ),
-                            self.shape,
-                        )
-                    if other.requires_grad:
-                        other.grad += self.d.reshape(
-                            self.d.sum(
-                                data_pow_other * self.d.log(self_data), axis=axis_other
-                            ),
-                            other.shape,
-                        )
+                    # backward for multiplication of tensors of unequal shapes (basically means -> addition with broadcasting)
+                    def backward():
+                        if self.requires_grad:
+                            self.grad += self.d.reshape(
+                                self.d.sum(
+                                    other_data * data_pow_other_min_1 * res.grad,
+                                    axis=axis_self,
+                                ),
+                                self.shape,
+                            )
+                        if other.requires_grad:
+                            other.grad += self.d.reshape(
+                                self.d.sum(
+                                    data_pow_other * self.d.log(self_data), axis=axis_other
+                                ),
+                                other.shape,
+                            )
 
-            res._backward = backward
-            res.requires_grad = True
-            return res
+                res._backward = backward
+                res.requires_grad = True
+                return res
         else:
             self._check(None, raise_error_right_away=True)
 
