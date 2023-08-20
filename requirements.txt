@@ -1,2 +1,2 @@
-numpy
-# cupy
+numpy==1.25.2
+cupy==11.0.0
