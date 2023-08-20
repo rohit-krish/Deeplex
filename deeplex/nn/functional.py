@@ -1,5 +1,5 @@
 from ._act_func import relu, sigmoid, tanh, softmax
-from ._loss_func import BCELoss, MSELoss
+from ._loss_func import BCELoss, MSELoss, NLLLoss
 
 
 def exp(input):
