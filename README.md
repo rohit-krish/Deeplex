@@ -3,7 +3,7 @@ Deeplex is a basic Deep Learning Framework, built on top of an AutoGrad Engine.
 ### TODO
 
 - [x] computation on GPU aswell
-- [ ] add .requires_grad in Tensor
+- [x] add .requires_grad in Tensor
 - [ ] add the 'with block' of no_grad
 - [x] automatically list the parameters
 - [ ] implement more loss functions
