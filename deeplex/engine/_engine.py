@@ -4,6 +4,20 @@ from ..utils import broadcast_axis__
 
 
 class no_grad:
+    """
+    A context manager to temporarily disable gradient computation.
+
+    This context manager disables the gradient computation for all tensors within its scope.
+    It can be used as follows:
+
+    Example:
+        >>> with no_grad():
+        ...     # Inside this block, gradient computation is disabled
+        ...     x = Tensor([1.0, 2.0], requires_grad=True)
+        ...     y = x * 2
+        ...     y.backward()  # No gradient will be computed for y and x
+    """
+
     def __enter__(self):
         self.prev = Tensor.grad_enabled
         Tensor.grad_enabled = False
@@ -13,6 +27,22 @@ class no_grad:
 
 
 class Tensor:
+    """
+    This class defines a tensor with support for automatic differentiation.
+    It enables creating tensors with gradient tracking, and operations on tensors that
+    allow backpropagation to compute gradients.
+
+    Args:
+        data: The data array of the tensor.
+        device (str): The device to place the tensor on, either 'cpu' or 'cuda'.
+        dtype (str): The data type of the tensor, e.g., 'float32'.
+        _prev (tuple of Tensor, optional): Tensors that depend on this tensor in the computation graph.
+        requires_grad (bool, optional): Whether to compute gradients for this tensor.
+
+    Attributes:
+        grad_enabled (bool): A class-level flag to enable or disable gradient computation.
+    """
+
     grad_enabled = True
 
     def __init__(
@@ -55,6 +85,8 @@ class Tensor:
         self._r_grad = val
 
     def to(self, device: str):
+        """Move the tensor to the specified device."""
+
         if device == self.device:
             return self
 
@@ -79,6 +111,8 @@ class Tensor:
         return self
 
     def backward(self):
+        """Compute gradients using backpropagation."""
+
         if self.requires_grad == False:
             raise RuntimeError("Doesn't have a gradient (self.requires_grad is False)")
 
@@ -110,6 +144,8 @@ class Tensor:
         g_min=1e-7,
         g_max=1 - 1e-7,
     ):
+        """Clip tensor values and gradients within specified ranges."""
+
         self.data = self.data.clip(min, max)
 
         if clip_grad and (self.grad != None):
@@ -118,6 +154,8 @@ class Tensor:
         return self
 
     def reshape(self, *shape):
+        """Reshape the tensor."""
+
         res = Tensor(self.data.reshape(shape), self.device, self.dtype, (self,))
 
         if self.requires_grad and self.grad_enabled:
@@ -132,6 +170,8 @@ class Tensor:
 
     @property
     def T(self):
+        """Transpose the tensor."""
+
         res = Tensor(self.data.T, self.device, self.dtype, (self,))
 
         if self.requires_grad and self.grad_enabled:
@@ -145,6 +185,8 @@ class Tensor:
         return res
 
     def exp(self):
+        """Compute element-wise exponential."""
+
         res = Tensor(self.d.exp(self.data), self.device, self.dtype, (self,))
 
         if self.requires_grad and self.grad_enabled:
@@ -158,7 +200,8 @@ class Tensor:
         return res
 
     def log(self):
-        """natural logarithm"""
+        """Compute natural logarithm."""
+
         res = Tensor(self.d.log(self.data), self.device, self.dtype, (self,))
 
         if self.requires_grad and self.grad_enabled:
@@ -172,6 +215,8 @@ class Tensor:
         return res
 
     def sum(self, axis=None, keepdims=False, dtype=None):
+        """Compute sum along specified axes."""
+
         sum_val = self.d.sum(self.data, axis=axis, keepdims=keepdims, dtype=dtype)
         res = Tensor(sum_val, self.device, self.dtype, (self,))
 
@@ -189,14 +234,20 @@ class Tensor:
         return res
 
     def __len__(self):
+        """Return the length of the first dimension."""
+
         return self.shape[0]
 
     def __setitem__(self, indices, other):
+        """Set values of the tensor using indexing."""
+
         self._check(other, if_tensor=True)
         self.data[indices] = other.data.astype(self.data.dtype).copy()
         self.grad[indices] = other.grad.astype(self.grad.dtype).copy()
 
     def __getitem__(self, indices):
+        """Get a subset of the tensor using indexing."""
+
         res = Tensor(self.data[indices], self.device, self.dtype, (self,))
 
         if self.requires_grad and self.grad_enabled:
@@ -209,25 +260,31 @@ class Tensor:
 
         return res
 
-    def __matmul__(self, other):  # self @ other
+    def __matmul__(self, other):
+        """Calculates matrix multiplication, between two tensors."""
+
         self._check(other, if_tensor=True)
         self._check(other, if_same_device=True)
         res = Tensor(self.data @ other.data, self.device, self.dtype, (self, other))
 
+        # if both tensors don't care about gradient calculations then just return with the result
         if self.requires_grad == other.requires_grad == False:
             return res
 
+        # if not in the no_grad context and one of the tensors care about gradient calculation; but don't sure which one.
         if self.grad_enabled:
             if self.data.ndim == other.data.ndim == 2:
                 # backward for matmul of 2D tensors
                 def backward():
+                    # Update the gradient of the corresponding tensor, only if it's requires_grad is True
                     if self.requires_grad:
                         self.grad += res.grad @ other.data.T
                     if other.requires_grad:
                         other.grad += self.data.T @ res.grad
 
             else:
-                # Other cases
+                # now the shapes of both tensors are not the same; so now things get a bit convoluted
+                # now we have to find axis for expanding & broadcasting to adaptivly perform the backward prop.
                 if self.data.ndim == 1:
                     self_expand_axis = (0,)
                     self_expanded_shape = (1,) + self.shape
@@ -249,6 +306,7 @@ class Tensor:
                 )
 
                 def backward():
+                    # Update the gradient of the corresponding tensor, only if it's requires_grad is True
                     if self.requires_grad:
                         self.grad += self.d.reshape(
                             self.d.sum(
@@ -289,6 +347,8 @@ class Tensor:
         return res
 
     def __add__(self, other):
+        """Add the tensor with another tensor or scalar."""
+
         if isinstance(other, (int, float)):  # element wise addition
             res = Tensor(self.data + other, self.device, self.dtype, (self,))
 
@@ -306,15 +366,18 @@ class Tensor:
             self._check(other, if_same_device=True)
             res = Tensor(self.data + other.data, self.device, self.dtype, (self, other))
 
+            # if both tensors don't care about gradient calculations then just return with the result
             if self.requires_grad == other.requires_grad == False:
                 return res
 
+            # if not in the no_grad context and one of the tensors care about gradient calculation; but don't sure which one.
             if self.grad_enabled:
                 self_shape, other_shape = self.shape, other.shape
 
                 if self_shape == other_shape:
                     # backward for element-wise addition of tensors with same shape
                     def backward():
+                        # Update the gradient of the corresponding tensor, only if it's requires_grad is True
                         if self.requires_grad:
                             self.grad += res.grad
                         if other.requires_grad:
@@ -325,7 +388,9 @@ class Tensor:
                     axis_self, axis_other = broadcast_axis__(self_shape, other_shape)
 
                     # backward for addition of tensors of unequal shapes (basically means -> addition with broadcasting)
+                    # here we need to take the sum of all the gradient along the axis in which we performed broadcated addition.
                     def backward():
+                        # Update the gradient of the corresponding tensor, only if it's requires_grad is True
                         if self.requires_grad:
                             self.grad += self.d.reshape(
                                 self.d.sum(res.grad, axis=axis_self), self_shape
@@ -343,6 +408,8 @@ class Tensor:
             self._check(None, raise_error_right_away=True)
 
     def __mul__(self, other):
+        """Multiply the tensor with another tensor or scalar."""
+
         if isinstance(other, (int, float)):  # element wise multiplication
             res = Tensor(self.data * other, self.device, self.dtype, (self,))
 
@@ -360,15 +427,18 @@ class Tensor:
             self._check(other, if_same_device=True)
             res = Tensor(self.data * other.data, self.device, self.dtype, (self, other))
 
+            # if both tensors don't care about gradient calculations then just return with the result
             if self.requires_grad == other.requires_grad == False:
                 return res
 
+            # if not in the no_grad context and one of the tensors care about gradient calculation; but don't sure which one.
             if self.grad_enabled:
                 self_shape, other_shape = self.shape, other.shape
 
                 if self_shape == other_shape:
                     # backward for element-wise multiplication of tensors with same shape
                     def backward():
+                        # Update the gradient of the corresponding tensor, only if it's requires_grad is True
                         if self.requires_grad:
                             self.grad += other.data * res.grad
                         if other.requires_grad:
@@ -379,7 +449,9 @@ class Tensor:
                     axis_self, axis_other = broadcast_axis__(self_shape, other_shape)
 
                     # backward for multiplication of tensors of unequal shapes (basically means -> addition with broadcasting)
+                    # here we need to take the sum of all the gradient along the axis in which we performed broadcated multiplication.
                     def backward():
+                        # Update the gradient of the corresponding tensor, only if it's requires_grad is True
                         if self.requires_grad:
                             self.grad += self.d.reshape(
                                 self.d.sum(other.data * res.grad, axis=axis_self),
@@ -399,8 +471,11 @@ class Tensor:
             self._check(None, raise_error_right_away=True)
 
     def __pow__(self, other):
-        # Numpy or Cupy doesn't support powering by -ve values so taking reciprocal of variable powered the abs of the -ve powering term
-        # variable ** negative_value = 1 / (variable ** abs(negative_value))
+        """Raise the tensor to the power of another tensor or scalar."""
+
+        # Numpy and Cupy doesn't support powering by -ve values
+        # so here we are taking reciprocal of variable powered the abs of the -ve powering term
+        # |++| variable ** negative_value = 1 / (variable ** abs(negative_value)) |++|
 
         def _neg_pow(a, b):
             return 1 / (a ** self.d.abs(b)) if b < 0 else a**b
@@ -425,21 +500,23 @@ class Tensor:
             other_data = other.data.astype("float64")
             self_data = self.data.astype("float64")
 
+            # perform the _neg_pow function element wise to get the result
             res_data = self.d.vectorize(_neg_pow)(self_data, other_data)
             res = Tensor(res_data, self.device, "float64", (self, other))
 
+            # if both tensors don't care about gradient calculations then just return with the result
             if self.requires_grad == other.requires_grad == False:
                 return res
 
+            # if not in the no_grad context and one of the tensors care about gradient calculation; but don't sure which one.
             if self.grad_enabled:
-                data_pow_other_min_1 = self.d.vectorize(_neg_pow)(
-                    self_data, other_data - 1
-                )
+                data_pow_other_min_1 = self.d.vectorize(_neg_pow)(self_data, other_data - 1)
                 data_pow_other = self.d.vectorize(_neg_pow)(self_data, other_data)
 
                 if self.shape == other.shape:
                     # backward for element-wise powering of tensors with same shape
                     def backward():
+                        # Update the gradient of the corresponding tensor, only if it's requires_grad is True
                         if self.requires_grad:
                             self.grad += other_data * data_pow_other_min_1 * res.grad
                         if other.requires_grad:
@@ -450,7 +527,9 @@ class Tensor:
                     axis_self, axis_other = broadcast_axis__(self.shape, other.shape)
 
                     # backward for multiplication of tensors of unequal shapes (basically means -> addition with broadcasting)
+                    # here we need to take the sum of all the gradient along the axis in which we performed broadcated powering.
                     def backward():
+                        # Update the gradient of the corresponding tensor, only if it's requires_grad is True
                         if self.requires_grad:
                             self.grad += self.d.reshape(
                                 self.d.sum(
@@ -475,42 +554,51 @@ class Tensor:
         else:
             self._check(None, raise_error_right_away=True)
 
-    def __radd__(self, other):  # other(dtype -> not Tensor) + self
+    def __radd__(self, other):
+        """Right-side addition."""
         return self + other
 
-    def __rmul__(self, other):  # other(dtype -> not Tensor) * self
+    def __rmul__(self, other):
+        """Right-side multiplication."""
         return self * other
 
-    def __truediv__(self, other):  # self / other
+    def __truediv__(self, other):
+        """Division."""
         return self * (other**-1)
 
-    def __rtruediv__(self, other):  # other(dtype -> not Tensor) / self
+    def __rtruediv__(self, other):
+        """Right-side division."""
         return (self**-1) * other
 
-    def __neg__(self):  # -self
+    def __neg__(self):
+        """Negation."""
         return self * -1
 
-    def __sub__(self, other):  # self - other
+    def __sub__(self, other):
+        """Subtraction."""
         return self + (-other)
 
-    def __rsub__(self, other):  # other(dtype -> not Tensor) - self
+    def __rsub__(self, other):
+        """Right-side subtraction."""
         return -self + other
 
     def __str__(self):
+        """String representation of the tensor."""
+
         device_str = f", device={self.device}" if self.device == "cuda" else ""
         grad_str = ", requires_grad=True" if self.requires_grad else ""
         return f"tensor{repr(self.data)[5:-1]}{device_str}{grad_str})"
 
     def __repr__(self):
+        """Detailed string representation of the tensor."""
         return str(self)
 
     def _check(
         self, other, raise_error_right_away=False, if_tensor=False, if_same_device=False
     ):
-        error_str = "Unsupported datatype :("
-
         if if_tensor and (not isinstance(other, Tensor)):
             raise_error_right_away = True
+            error_str = "Unsupported datatype; Expected a Tensor."
 
         elif if_same_device and (self.device != other.device):
             raise_error_right_away = True

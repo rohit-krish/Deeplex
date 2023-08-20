@@ -8,12 +8,35 @@ def _check_if_same_device(y1: Tensor, y2: Tensor):
         )
 
 
-def MSELoss(y1: Tensor, y2: Tensor):
+def MSELoss(y1: Tensor, y2: Tensor) -> Tensor:
+    """
+    Compute the Mean Squared Error (MSE) loss between two tensors.
+
+    Args:
+        y1 (Tensor): The first input tensor.
+        y2 (Tensor): The second input tensor.
+
+    Returns:
+        Tensor: The computed MSE loss.
+    """
+
     _check_if_same_device(y1, y2)
     return ((y1 - y2) ** 2).sum() / len(y2)
 
 
-def BCELoss(input: Tensor, pred: Tensor, eps=1e-7):
+def BCELoss(input: Tensor, pred: Tensor, eps=1e-7) -> Tensor:
+    """
+    Compute the Binary Cross Entropy (BCE) loss between predicted and target tensors.
+
+    Args:
+        input (Tensor): The target tensor.
+        pred (Tensor): The predicted tensor.
+        eps (float, optional): A small constant to avoid numerical instability. Default is 1e-7.
+
+    Returns:
+        Tensor: The computed BCE loss.
+    """
+
     _check_if_same_device(input, pred)
 
     # clipping to avoid numerical instability
@@ -22,7 +45,20 @@ def BCELoss(input: Tensor, pred: Tensor, eps=1e-7):
     return -(a + b).sum() / len(pred)
 
 
-def NLLLoss(input: Tensor, pred: Tensor, eps=1e-7):
+def NLLLoss(input: Tensor, pred: Tensor, eps=1e-7) -> Tensor:
+    """
+    Compute the Negative Log-Likelihood (NLL) loss between predicted and target tensors.
+
+    Args:
+        input (Tensor): The target tensor.
+        pred (Tensor): The predicted tensor.
+        eps (float, optional): A small constant to avoid numerical instability. Default is 1e-7.
+
+    Returns:
+        Tensor: The computed NLL loss.
+
+    """
+
     _check_if_same_device(input, pred)
 
     # clipping to avoid numerical instability
