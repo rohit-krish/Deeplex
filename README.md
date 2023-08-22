@@ -62,7 +62,11 @@ cupy  # tested version 11.0.0
 - https://youtu.be/wG_nF1awSSY (What is Automatic Differentiation?)
 - https://youtu.be/VMj-3S1tku0 (Micrograd - Andrej Karpathy)
 - https://youtu.be/pauPCy_s0Ok (Neural Network from Scratch | Mathematics & Python Code)
-- https://github.com/conscell/ugrad (A lightweight automatic differentiation engine)
+
+### Related Works
+
+- https://github.com/conscell/ugrad
+- https://github.com/karpathy/micrograd
 
 ### License
 
