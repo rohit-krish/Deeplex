@@ -118,7 +118,7 @@ class Linear(Module):
             )
 
     def __call__(self, X: Tensor):
-        out = X @ self.W + self.b
+        out = X @ self.W + (self.b if self.bias else 0)
         return out
 
 
