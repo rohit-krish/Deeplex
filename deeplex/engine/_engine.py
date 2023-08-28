@@ -153,6 +153,31 @@ class Tensor:
 
         return self
 
+    def unsqueeze(self, axis):
+        """
+        Add a new axis at the specified position.
+
+        Args:
+            axis (int): The position where the new axis should be added.
+
+        Returns:
+            Tensor: A new tensor with the added axis.
+        """
+
+        res = Tensor(
+            self.d.expand_dims(self.data, axis=axis), self.device, self.dtype, (self,)
+        )
+
+        if self.requires_grad and self.grad_enabled:
+
+            def backward():
+                self.grad += res.grad.squeeze(axis=axis)
+
+            res._backward = backward
+            res.requires_grad = True
+
+        return res
+
     def reshape(self, *shape):
         """Reshape the tensor."""
 
@@ -510,7 +535,9 @@ class Tensor:
 
             # if not in the no_grad context and one of the tensors care about gradient calculation; but don't sure which one.
             if self.grad_enabled:
-                data_pow_other_min_1 = self.d.vectorize(_neg_pow)(self_data, other_data - 1)
+                data_pow_other_min_1 = self.d.vectorize(_neg_pow)(
+                    self_data, other_data - 1
+                )
                 data_pow_other = self.d.vectorize(_neg_pow)(self_data, other_data)
 
                 if self.shape == other.shape:
