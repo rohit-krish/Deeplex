@@ -1,6 +1,7 @@
 from .. import get_d__
 from ..engine import Tensor
 from ._act_func import tanh
+from .functional import pad
 
 
 class ModuleList:
@@ -119,6 +120,64 @@ class Linear(Module):
 
     def __call__(self, X: Tensor):
         out = X @ self.W + (self.b if self.bias else 0)
+        return out
+
+
+class Conv2d(Module):
+    def __init__(
+        self,
+        in_channels,
+        out_channels,
+        kernel_size,
+        stride=1,
+        padding=0,
+        device="cpu",
+        dtype="float32",
+    ):
+        super().__init__(device)
+        self.in_channels = in_channels
+        self.out_channels = out_channels
+        self.kernel_size = kernel_size
+        self.stride = stride
+        self.padding = padding
+        self.dtype = dtype
+
+        # Initialize weights and bias
+        self.weights = Tensor(
+            self.d.random.randn(1, out_channels, in_channels, kernel_size, kernel_size),
+            device,
+            dtype,
+            requires_grad=True,
+        )
+        self.bias = Tensor(
+            self.d.random.randn(out_channels), device, dtype, requires_grad=True
+        )
+
+    def __call__(self, x: Tensor):
+        batch_size, in_channels, in_height, in_width = x.shape
+        out_height = (in_height + 2 * self.padding - self.kernel_size) // self.stride + 1
+        out_width = (in_width + 2 * self.padding - self.kernel_size) // self.stride + 1
+
+        # Apply padding if needed
+        if self.padding > 0:
+            x = pad(x, self.padding)
+
+        # Initialize the output tensor
+        out = Tensor(
+            self.d.zeros((batch_size, self.out_channels, out_height, out_width)),
+            self.device,
+            self.dtype,
+            (self.weights, self.bias),
+            requires_grad=True,
+        )
+
+        # Perform correlation
+        for oc in range(self.out_channels):
+            for oh in range(0, out_height * self.stride, self.stride):
+                for ow in range(0, out_width * self.stride, self.stride):
+                    receptive_field = x[:, :, oh : oh + self.kernel_size, ow : ow + self.kernel_size]
+                    res = (receptive_field * self.weights[:, oc]).reshape(batch_size, -1).sum(axis=1) + self.bias[oc]
+                    out[:, oc, oh // self.stride, ow // self.stride] = res
         return out
 
 
