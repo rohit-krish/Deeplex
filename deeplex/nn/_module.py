@@ -121,6 +121,7 @@ class Linear(Module):
         out = X @ self.W + self.b
         return out
 
+# !CRITICAL: won't gonna work backprop for the below RNN Module
 
 class RNN(Module):
     def __init__(
