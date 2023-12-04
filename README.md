@@ -1,6 +1,6 @@
 <img src="images/banner.png">
 
-Deeplex is a PyTorch inspired, basic Deep Learning Framework; built on top of an Reverse-Mode AutoGrad Engine.
+Deeplex is a PyTorch inspired, basic Deep Learning Framework; built on top of a custom Reverse-Mode AutoGrad Engine.
 <br>
 <i>Computations are handled using NumPy (CPU) & CuPy (GPU).</i>
 
